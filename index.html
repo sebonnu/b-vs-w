@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>白黒対戦シューティング - WebSocket最新版</title>
+<title>白黒対戦シューティング - WebSocket安定版</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
     body {
@@ -75,7 +75,7 @@
 
 <script>
 // --- 通信システム用変数 ---
-let socket = io(); // サーバーへ接続
+let socket = io(); 
 let isHost = false; 
 
 // --- ゲームコア変数 ---
@@ -90,7 +90,7 @@ const GRID_SIZE = 40;
 const COLS = canvas.width / GRID_SIZE;  
 const ROWS = canvas.height / GRID_SIZE; 
 
-let grid = new Uint8Array(COLS * ROWS);
+let grid = new Array(COLS * ROWS).fill(9); // 普通の配列に変更して安全性を向上
 let currentStageType = 'arena'; 
 
 // --- ネットワークイベント設定 ---
@@ -178,13 +178,13 @@ function renderGameAsGuest(data) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // マス描画 (ArrayBufferから復元)
-    const sharedGrid = new Uint8Array(data.grid);
+    // マス描画 
+    const sharedGrid = data.grid;
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             const val = sharedGrid[r * COLS + c];
-            if (val === 9) {
-                ctx.fillStyle = '#666'; ctx.fillRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+            if (val === 9) { 
+                ctx.fillStyle = '#666'; ctx.fillRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE); 
             } else {
                 ctx.fillStyle = (val === 1) ? '#000' : '#FFF'; ctx.fillRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
                 ctx.strokeStyle = 'rgba(128, 128, 128, 0.2)'; ctx.lineWidth = 1; ctx.strokeRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
@@ -210,7 +210,7 @@ function renderGameAsGuest(data) {
     drawPlayerProxy(data.p1, true); drawPlayerProxy(data.p2, false);
 }
 
-// --- 以下、ゲームロジック（変更なし、ホスト計算用） ---
+// --- 以下、ゲームロジック（ホスト計算用） ---
 function initGrid(stageType) {
     grid.fill(9); 
     for (let y = 0; y < ROWS; y++) {
@@ -378,7 +378,7 @@ function loop() {
         for (let i = bullets.length - 1; i >= 0; i--) {
             let b = bullets[i]; b.update(); if (b.toRemove) bullets.splice(i, 1);
         }
-        // 相殺・被弾・アイテム取得判定 (ロジックは以前と同様)
+        
         for (let i = 0; i < bullets.length; i++) {
             for (let j = i + 1; j < bullets.length; j++) {
                 if (bullets[i].isBlack !== bullets[j].isBlack) {
@@ -416,11 +416,11 @@ function loop() {
         ctx.fillStyle = '#FFF'; ctx.font = 'bold 48px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(winner, canvas.width / 2, canvas.height / 2);
     }
 
-    // サーバーを介してゲストにデータを送信
+    // サーバーを介してゲストにデータを送信（gridデータを普通の配列オブジェクトとして丸ごと送るように変更）
     const bulletData = bullets.map(b => ({ x: b.x, y: b.y, color: b.isGreen3Way ? '#00FF33' : (b.isPower ? '#FF3333' : (b.isBlack ? '#000' : '#FFF')) }));
     const itemData = items.map(i => ({ x: i.gridX, y: i.gridY }));
     socket.emit('syncData', {
-        grid: grid.buffer, // 高速化のためバイナリのまま送信
+        grid: Array.from(grid), 
         p1: { x: p1.gridX, y: p1.gridY, ammo: p1.ammo, charging: p1.isCharging, hasPower: p1.hasPowerShot },
         p2: { x: p2.gridX, y: p2.gridY, ammo: p2.ammo, charging: p2.isCharging, hasPower: p2.hasPowerShot },
         bullets: bulletData, items: itemData, countdown: currentCount, gameOver: gameOver, winner: winner
